@@ -208,12 +208,13 @@ footer strong { color:var(--gold); }
   </section>
 
   <section id="matches" class="section hidden">
-    <div class="section-title"><h2>المباريات</h2><span>النتائج المباشرة</span></div>
-    <div class="panel empty">
-      <div class="ball">🏟️</div>
-      <strong>بيانات المباريات غير متاحة حاليًا</strong>
-      <p>لم يتم ربط واجهة نتائج مباشرة بعد، لذلك لن نعرض مواعيد أو نتائج غير مؤكدة.</p>
-    </div>
+  <div class="section-title">
+    <h2>المباريات</h2>
+    <span>الدوري الإنجليزي</span>
+  </div>
+  <div class="panel" id="live-football-data">
+    <p id="football-match-list">جاري تحميل المباريات...</p>
+  </div>
   </section>
 
   <section id="news" class="section hidden">
@@ -305,56 +306,49 @@ renderSaved();
 const API_URL = "https://small-forestal-ameed-api-7feb.abdullrhmen88.workers.dev/?competition=PL";
 
 async function loadFootballMatches() {
+  const list = document.getElementById("football-match-list");
+  if (!list) return;
+
   try {
     const response = await fetch(API_URL);
-    if (!response.ok) throw new Error("فشل تحميل المباريات");
+    if (!response.ok) throw new Error("API error");
 
     const data = await response.json();
-    console.log("مباريات الدوري الإنجليزي:", data.matches);
+    const matches = data.matches || [];
 
-    const section = document.createElement("section");
-    section.id = "live-football-data";
-    section.dir = "rtl";
-    section.style.cssText =
-      "padding:20px;margin:20px;background:#111;color:#fff;border:1px solid #c9a227;border-radius:12px";
+    if (!matches.length) {
+      list.textContent = "لا توجد مباريات متاحة حاليًا.";
+      return;
+    }
 
-    section.innerHTML = `
-      <h2 style="color:#c9a227">⚽ مباريات الدوري الإنجليزي</h2>
-      <div id="football-match-list">جاري تحميل المباريات...</div>
-    `;
+    list.innerHTML = matches.slice(0, 20).map(match => {
+      const home = match.homeTeam?.shortName || match.homeTeam?.name || "الفريق الأول";
+      const away = match.awayTeam?.shortName || match.awayTeam?.name || "الفريق الثاني";
+      const score = match.score?.fullTime;
+      const result = score?.home != null && score?.away != null
+        ? `${score.home} - ${score.away}`
+        : "لم تُلعب بعد";
 
-    const oldSection = document.getElementById("live-football-data");
-    if (oldSection) oldSection.remove();
+      const status = {
+        FINISHED: "انتهت",
+        IN_PLAY: "مباشرة",
+        PAUSED: "استراحة",
+        SCHEDULED: "قادمة",
+        TIMED: "موعد محدد"
+      }[match.status] || match.status || "";
 
-    document.body.appendChild(section);
-
-    const list = section.querySelector("#football-match-list");
-    const matches = (data.matches || []).slice(0, 10);
-
-    list.innerHTML = matches.length
-      ? matches.map(match => {
-          const home = match.homeTeam?.shortName || match.homeTeam?.name || "الفريق الأول";
-          const away = match.awayTeam?.shortName || match.awayTeam?.name || "الفريق الثاني";
-          const score = match.score?.fullTime;
-          const result = score?.home != null && score?.away != null
-            ? `${score.home} - ${score.away}`
-            : "لم تُلعب بعد";
-
-          return `<div style="padding:12px 0;border-bottom:1px solid #444">
-            <strong>${home}</strong> &nbsp; ${result} &nbsp; <strong>${away}</strong>
-            <div style="color:#bbb;font-size:12px;margin-top:5px">
-              ${match.status === "FINISHED" ? "انتهت" : match.status === "IN_PLAY" ? "مباشرة" : match.status === "SCHEDULED" ? "قادمة" : match.status}
-            </div>
-          </div>`;
-        }).join("")
-      : "لا توجد مباريات متاحة حاليًا.";
+      return `
+        <div style="padding:14px 0;border-bottom:1px solid #292929;text-align:center">
+          <strong>${home}</strong>
+          <div style="color:#D4AF37;font-size:22px;padding:8px">${result}</div>
+          <strong>${away}</strong>
+          <div style="color:#aaa;font-size:12px;margin-top:6px">${status}</div>
+        </div>
+      `;
+    }).join("");
   } catch (error) {
     console.error(error);
-    const section = document.getElementById("live-football-data");
-    if (section) {
-      section.querySelector("#football-match-list").textContent =
-        "تعذر تحميل المباريات. تأكد من إعدادات الووركر.";
-    }
+    list.textContent = "تعذر تحميل المباريات. تحقق من اتصال الـ API.";
   }
 }
 
